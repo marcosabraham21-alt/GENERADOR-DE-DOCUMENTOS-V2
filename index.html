@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sistema Integral de Documentos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+/* ══════════════════════════════════════════════════════════
+   PALETA CÁLIDA — crema, terracota, ámbar, madera
+══════════════════════════════════════════════════════════ */
+:root {
+  --bg:       #fdf6ee;
+  --surf:     #ffffff;
+  --surf2:    #fef3e6;
+  --acc:      #bf4e1e;
+  --acc-h:    #d45f2a;
+  --amber:    #d97706;
+  --text:     #2b1a0e;
+  --muted:    #7c5c48;
+  --border:   #e4cfc0;
+  --border2:  #cfb5a2;
+  --ok:       #2e6b35;
+  --err:      #9b1c1c;
+  --r:        18px;
+  --shadow:   0 2px 16px rgba(80,35,10,.09);
+  --shadow-lg:0 8px 40px rgba(80,35,10,.14);
+}
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+
+body {
+  font-family:'DM Sans', sans-serif;
+  background: var(--bg);
+  background-image: radial-gradient(circle, #e0c9b8 1px, transparent 1px);
+  background-size: 26px 26px;
+  color: var(--text);
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+}
+
+/* ── HEADER ── */
+header {
+  width:100%; padding:2.75rem 2rem 3.5rem;
+  text-align:center;
+  background: linear-gradient(150deg, #2b1206 0%, #6b2c10 50%, #bf4e1e 100%);
+  position:relative; overflow:hidden;
+}
+header::before {
+  content:''; position:absolute;
+  width:360px; height:360px; border-radius:50%;
+  background:rgba(255,255,255,.05);
+  top:-140px; right:-80px; pointer-events:none;
+}
+header::after {
+  content:''; position:absolute;
+  bottom:-2px; left:0; width:100%; height:56px;
+  background:var(--bg);
+  clip-path: ellipse(55% 100% at 50% 100%);
+}
+header h1 {
+  font-family:'Lora', serif;
+  font-size: clamp(1.6rem, 4.5vw, 2.5rem);
+  font-weight:700; color:#fef3e6;
+  letter-spacing:-.02em; position:relative; z-index:1;
+}
+header h1 span { color:#f9a96e; }
+header p {
+  margin-top:.5rem; color:rgba(254,243,230,.65);
+  font-size:.85rem; position:relative; z-index:1; letter-spacing:.04em;
+}
+.version-pill {
+  display:inline-block; margin-top:1rem;
+  background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2);
+  border-radius:99px; padding:.25rem .85rem;
+  font-size:.7rem; color:rgba(254,243,230,.8); letter-spacing:.06em;
+  position:relative; z-index:1;
+}
+
+/* ── MAIN ── */
+main { width:100%; max-width:860px; padding:2rem 1.25rem 3rem; flex:1; }
+
+.module { display:none; }
+.module.active { display:block; }
+
+/* ── MENÚ ── */
+.menu-heading { text-align:center; margin-bottom:2rem; }
+.menu-heading h2 { font-family:'Lora',serif; font-size:1.5rem; font-weight:700; }
+.menu-heading p  { color:var(--muted); font-size:.875rem; margin-top:.35rem; }
+
+#menu-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(230px,1fr));
+  gap:1.25rem;
+}
+.menu-card {
+  background:var(--surf); border:1.5px solid var(--border);
+  border-radius:var(--r); padding:2rem 1.5rem 1.5rem;
+  cursor:pointer; box-shadow:var(--shadow);
+  transition:transform .22s, border-color .22s, box-shadow .22s;
+  display:flex; flex-direction:column; gap:.6rem;
+  position:relative; overflow:hidden;
+}
+.menu-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:4px;
+  border-radius:var(--r) var(--r) 0 0;
+}
+.menu-card.c1::before { background:linear-gradient(90deg,#bf4e1e,#e07048); }
+.menu-card.c2::before { background:linear-gradient(90deg,#d97706,#f59e0b); }
+.menu-card.c3::before { background:linear-gradient(90deg,#7b5ea7,#a98bd4); }
+.menu-card:hover { transform:translateY(-5px); border-color:var(--border2); box-shadow:var(--shadow-lg); }
+.menu-card .icon { font-size:2rem; line-height:1; }
+.menu-card h2 { font-family:'Lora',serif; font-size:1rem; font-weight:700; }
+.menu-card p  { font-size:.8rem; color:var(--muted); line-height:1.55; flex:1; }
+.menu-card .cta { margin-top:.5rem; font-size:.72rem; font-weight:600; color:var(--acc); letter-spacing:.06em; text-transform:uppercase; }
+
+/* ── BACK BTN ── */
+.back-btn {
+  display:inline-flex; align-items:center; gap:.4rem;
+  background:none; border:1.5px solid var(--border2);
+  color:var(--muted); padding:.45rem 1rem; border-radius:10px;
+  cursor:pointer; font-size:.8rem; font-family:'DM Sans',sans-serif;
+  transition:border-color .2s, color .2s, background .2s;
+  margin-bottom:1.75rem;
+}
+.back-btn:hover { border-color:var(--acc); color:var(--acc); background:var(--surf2); }
+
+/* ── MODULE HEADER ── */
+.module-header { display:flex; align-items:center; gap:1rem; margin-bottom:.5rem; }
+.module-icon  { font-size:2rem; line-height:1; }
+.module-title { font-family:'Lora',serif; font-size:1.45rem; font-weight:700; }
+.module-subtitle { font-size:.84rem; color:var(--muted); line-height:1.6; margin-bottom:1.5rem; }
+
+/* ── CARDS ── */
+.card {
+  background:var(--surf); border:1.5px solid var(--border);
+  border-radius:var(--r); padding:1.5rem 1.75rem;
+  margin-bottom:1.1rem; box-shadow:var(--shadow);
+}
+.card-label {
+  display:flex; align-items:center; gap:.6rem;
+  font-size:.72rem; font-weight:600; color:var(--muted);
+  text-transform:uppercase; letter-spacing:.07em; margin-bottom:1rem;
+}
+.step-num {
+  width:22px; height:22px; border-radius:50%;
+  background:var(--acc); color:#fff;
+  font-size:.72rem; font-weight:700;
+  display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.file-picker { display:flex; align-items:center; flex-wrap:wrap; gap:.75rem; }
+
+/* ── BUTTONS ── */
+.btn {
+  display:inline-flex; align-items:center; gap:.45rem;
+  padding:.7rem 1.2rem; border-radius:11px;
+  font-family:'DM Sans',sans-serif; font-size:.85rem; font-weight:600;
+  cursor:pointer; border:none;
+  transition:background .2s, transform .12s, box-shadow .2s;
+}
+.btn-primary {
+  background:var(--acc); color:#fff;
+  box-shadow:0 3px 12px rgba(191,78,30,.35);
+}
+.btn-primary:hover { background:var(--acc-h); box-shadow:0 4px 18px rgba(191,78,30,.45); }
+.btn-primary:active { transform:scale(.97); }
+.btn-primary:disabled { background:#d4b09a; box-shadow:none; cursor:not-allowed; transform:none; }
+.btn-outline {
+  background:var(--surf2); border:1.5px solid var(--border2); color:var(--text);
+}
+.btn-outline:hover { border-color:var(--acc); color:var(--acc); background:#fff; }
+
+.file-name { font-size:.78rem; color:var(--acc); font-style:italic; }
+.file-name.empty { color:var(--muted); font-style:normal; }
+
+/* ── PROGRESS ── */
+.prog-wrap { display:none; margin-top:1rem; }
+.prog-label { display:flex; justify-content:space-between; font-size:.72rem; color:var(--muted); margin-bottom:.4rem; }
+progress { width:100%; height:7px; border-radius:99px; appearance:none; border:none; }
+progress::-webkit-progress-bar   { background:var(--surf2); border-radius:99px; }
+progress::-webkit-progress-value { background:linear-gradient(90deg,var(--acc),var(--amber)); border-radius:99px; }
+
+/* ── CONSOLE ── */
+.console {
+  background:#1e0f06; border:1.5px solid #3d1f0f; border-radius:12px;
+  padding:1rem 1.1rem; font-family:'Courier New',monospace;
+  font-size:.76rem; color:#d4a574;
+  height:190px; overflow-y:auto; white-space:pre-wrap; line-height:1.65;
+}
+.console .ok  { color:#6ec17a; }
+.console .err { color:#e07070; }
+
+/* ── INFO BOX ── */
+.info-box {
+  background:var(--surf2); border:1.5px solid var(--border);
+  border-left:4px solid var(--acc); border-radius:12px;
+  padding:.9rem 1.2rem; font-size:.8rem; color:var(--muted);
+  line-height:1.65; margin-bottom:1.25rem;
+}
+.info-box strong { color:var(--acc); }
+code { font-size:.78rem; background:#ece0d7; padding:.1em .35em; border-radius:4px; color:var(--acc); }
+
+/* ── TOAST ── */
+#toast {
+  position:fixed; bottom:2rem; left:50%;
+  transform:translateX(-50%) translateY(120px);
+  background:var(--surf); border:1.5px solid var(--border2);
+  border-radius:14px; padding:.9rem 1.6rem;
+  font-size:.875rem; font-weight:500;
+  box-shadow:var(--shadow-lg);
+  transition:transform .35s cubic-bezier(.34,1.56,.64,1);
+  z-index:999; min-width:260px; max-width:480px; text-align:center;
+}
+#toast.show  { transform:translateX(-50%) translateY(0); }
+#toast.success { border-color:#6ec17a; color:var(--ok); }
+#toast.error   { border-color:#e07070; color:var(--err); }
+#toast.info    { border-color:var(--acc); color:var(--acc); }
+
+footer {
+  text-align:center; font-size:.72rem; color:var(--muted);
+  padding:1.5rem; border-top:1px solid var(--border);
+  width:100%; background:var(--surf);
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Sistema <span>Integral</span> de Documentos</h1>
+  <p>Extracción SAT · Contratos automáticos · Conversión PDF</p>
+  <div class="version-pill">v 2.1 — bug fix contratos ✓</div>
+</header>
+
+<main>
+
+<!-- ═══ MENÚ ═══ -->
+<div id="view-menu" class="module active">
+  <div class="menu-heading">
+    <h2>¿Qué quieres hacer hoy?</h2>
+    <p>Elige un módulo para comenzar</p>
+  </div>
+  <div id="menu-grid">
+    <div class="menu-card c1" onclick="showModule('pdf')">
+      <div class="icon">📄</div>
+      <h2>PDF → Excel (SAT)</h2>
+      <p>Extrae RFC, CURP, nombre y dirección de Constancias Fiscales y exporta un reporte .xlsx.</p>
+      <div class="cta">Abrir módulo →</div>
+    </div>
+    <div class="menu-card c2" onclick="showModule('word')">
+      <div class="icon">📝</div>
+      <h2>Generador de Contratos</h2>
+      <p>Carga tu plantilla .docx con etiquetas <code>{{campo}}</code> y un Excel de datos. Un contrato por fila.</p>
+      <div class="cta">Abrir módulo →</div>
+    </div>
+    <div class="menu-card c3" onclick="showModule('convert')">
+      <div class="icon">🔄</div>
+      <h2>Word → PDF</h2>
+      <p>Convierte archivos .docx a PDF directamente en el navegador, sin instalar nada extra.</p>
+      <div class="cta">Abrir módulo →</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PDF → EXCEL ═══ -->
+<div id="view-pdf" class="module">
+  <button class="back-btn" onclick="showModule('menu')">← Volver al menú</button>
+  <div class="module-header">
+    <div class="module-icon">📄</div>
+    <div><div class="module-title">PDF a Excel</div></div>
+  </div>
+  <div class="module-subtitle">Sube Constancias de Situación Fiscal del SAT y obtén un reporte .xlsx con todos los datos clave.</div>
+  <div class="info-box">
+    <strong>¿Cómo funciona?</strong> El motor extrae RFC, CURP, nombre completo, dirección y regímenes
+    usando los mismos patrones regex de la app de escritorio.
+  </div>
+  <div class="card">
+    <div class="card-label"><span class="step-num">1</span> Seleccionar archivos PDF</div>
+    <div class="file-picker">
+      <input type="file" id="pdf-input" accept=".pdf" multiple style="display:none" onchange="onPDFSelected(this)"/>
+      <button class="btn btn-outline" onclick="document.getElementById('pdf-input').click()">📂 Seleccionar PDFs</button>
+      <span class="file-name empty" id="pdf-file-name">Ningún archivo seleccionado</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-label"><span class="step-num">2</span> Generar reporte Excel</div>
+    <button class="btn btn-primary" id="pdf-go-btn" disabled onclick="processPDFs()">⚡ Generar reporte .xlsx</button>
+    <div class="prog-wrap" id="pdf-pw">
+      <div class="prog-label"><span id="pdf-pt">Procesando…</span><span id="pdf-pp">0%</span></div>
+      <progress id="pdf-progress" max="100" value="0"></progress>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-label">📋 Log de proceso</div>
+    <div class="console" id="pdf-console">Esperando archivos PDF…</div>
+  </div>
+</div>
+
+<!-- ═══ GENERADOR DE CONTRATOS ═══ -->
+<div id="view-word" class="module">
+  <button class="back-btn" onclick="showModule('menu')">← Volver al menú</button>
+  <div class="module-header">
+    <div class="module-icon">📝</div>
+    <div><div class="module-title">Generador de Contratos</div></div>
+  </div>
+  <div class="module-subtitle">Combina una plantilla Word con tus datos de Excel para generar contratos automáticamente.</div>
+  <div class="info-box">
+    <strong>Formato de etiquetas:</strong> Escribe <code>{{NombreColumna}}</code> en tu .docx donde quieras
+    insertar un dato. El nombre debe coincidir exactamente con el encabezado del Excel.<br><br>
+    <strong>✅ Bug corregido:</strong> Word fragmenta las etiquetas entre múltiples nodos XML internos.
+    Esta versión reconstruye el texto de cada párrafo antes de reemplazar, garantizando que
+    <code>{{campo}}</code> siempre se sustituya correctamente.
+  </div>
+  <div class="card">
+    <div class="card-label"><span class="step-num">1</span> Plantilla Word (.docx)</div>
+    <div class="file-picker">
+      <input type="file" id="template-input" accept=".docx" style="display:none" onchange="onTemplateSelected(this)"/>
+      <button class="btn btn-outline" onclick="document.getElementById('template-input').click()">📋 Seleccionar plantilla .docx</button>
+      <span class="file-name empty" id="template-name">Sin plantilla</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-label"><span class="step-num">2</span> Datos Excel (.xlsx)</div>
+    <div class="file-picker">
+      <input type="file" id="excel-input" accept=".xlsx,.xls" style="display:none" onchange="onExcelSelected(this)"/>
+      <button class="btn btn-outline" onclick="document.getElementById('excel-input').click()">📊 Seleccionar datos .xlsx</button>
+      <span class="file-name empty" id="excel-name">Sin datos</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-label"><span class="step-num">3</span> Generar contratos</div>
+    <button class="btn btn-primary" id="word-go-btn" disabled onclick="generateContracts()">⚡ Generar contratos .docx</button>
+    <div class="prog-wrap" id="word-pw">
+      <div class="prog-label"><span id="word-pt">Procesando…</span><span id="word-pp">0%</span></div>
+      <progress id="word-progress" max="100" value="0"></progress>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-label">📋 Log de proceso</div>
+    <div class="console" id="word-console">Esperando archivos…</div>
+  </div>
+</div>
+
+<!-- ═══ WORD → PDF ═══ -->
+<div id="view-convert" class="module">
+  <button class="back-btn" onclick="showModule('menu')">← Volver al menú</button>
+  <div class="module-header">
+    <div class="module-icon">🔄</div>
+    <div><div class="module-title">Word a PDF</div></div>
+  </div>
+  <div class="module-subtitle">Convierte archivos .docx a PDF directamente en el navegador.</div>
+  <div class="info-box">
+    <strong>Nota:</strong> Usa <code>docx-preview</code> + <code>html2canvas</code> + <code>jsPDF</code>,
+    equivalente a <code>docx2pdf</code> de la app de escritorio.
+  </div>
+  <div class="card">
+    <div class="card-label"><span class="step-num">1</span> Seleccionar archivo(s) Word</div>
+    <div class="file-picker">
+      <input type="file" id="convert-input" accept=".docx" multiple style="display:none" onchange="onConvertSelected(this)"/>
+      <button class="btn btn-outline" onclick="document.getElementById('convert-input').click()">📂 Seleccionar .docx</button>
+      <span class="file-name empty" id="convert-file-name">Sin archivo</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-label"><span class="step-num">2</span> Convertir a PDF</div>
+    <button class="btn btn-primary" id="convert-go-btn" disabled onclick="convertToPDF()">🔄 Convertir y descargar PDF</button>
+    <div class="prog-wrap" id="convert-pw">
+      <div class="prog-label"><span id="convert-pt">Convirtiendo…</span><span id="convert-pp">0%</span></div>
+      <progress id="convert-progress" max="100" value="0"></progress>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-label">📋 Log de proceso</div>
+    <div class="console" id="convert-console">Esperando archivos…</div>
+  </div>
+</div>
+
+</main>
+
+<div id="toast"></div>
+
+<footer>Sistema Integral de Documentos · v2.1 · Todo corre en tu navegador, sin servidores.</footer>
+
+<script>
+'use strict';
+
+/* ── UTILIDADES ─────────────────────────────────────────── */
+
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  setTimeout(() => { el.className = ''; }, 4500);
+}
+
+function logLine(id, line, cls = '') {
+  const el   = document.getElementById(id);
+  const span = document.createElement('span');
+  span.className = cls;
+  span.textContent = line + '\n';
+  el.appendChild(span);
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLog(id) { document.getElementById(id).innerHTML = ''; }
+
+function setProgress(prefix, pct) {
+  const wrap = document.getElementById(prefix + '-pw');
+  const bar  = document.getElementById(prefix + '-progress');
+  const pp   = document.getElementById(prefix + '-pp');
+  if (pct === null) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  bar.value = pct;
+  pp.textContent = pct + '%';
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function cleanText(t) { return t ? t.replace(/\s+/g, ' ').trim() : ''; }
+
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = res;
+    s.onerror = () => rej(new Error('Error cargando: ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+/* ── NAVEGACIÓN ─────────────────────────────────────────── */
+
+function showModule(name) {
+  document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+/* ── MÓDULO 1: PDF → EXCEL ──────────────────────────────── */
+
+let pdfFiles = [];
+
+const PATTERNS = {
+  RFC:             /RFC:\s*([A-ZÑ&]{3,4}\d{6}[A-Z\d]{3})/i,
+  CURP:            /CURP:\s*([A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z\d]\d)/i,
+  idCIF:           /idCIF:\s*(\d{11})/i,
+  nombre:          /Nombre\s*\(s\):\s*(.+?)(?=Primer\s?Apellido:)/is,
+  apellido_p:      /Primer\s?Apellido:\s*(.+?)(?=Segundo\s?Apellido:)/is,
+  apellido_m:      /Segundo\s?Apellido:\s*(.+?)(?=Fecha\s?inicio|Nombre\s?Comercial:)/is,
+  CODIGO_POSTAL:   /Código\s?Postal:\s*(\d{5})/i,
+  vialidad_tipo:   /Tipo\s?de\s?Vialidad:\s*(.+?)(?=Nombre\s?de\s?Vialidad:)/is,
+  vialidad_nombre: /Nombre\s?de\s?Vialidad:\s*(.+?)(?=Número\s?Exterior:)/is,
+  num_ext:         /Número\s?Exterior:\s*(.+?)(?=Número\s?Interior:|Nombre\s?de\s?la\s?Colonia:)/is,
+  num_int:         /Número\s?Interior:\s*(.+?)(?=Nombre\s?de\s?la\s?Colonia:)/is,
+  colonia:         /Nombre\s?de\s?la\s?Colonia:\s*(.+?)(?=Nombre\s?de\s?la\s?Localidad:)/is,
+  municipio:       /Nombre\s?del\s?Municipio.*?:\s*(.+?)(?=Nombre\s?de\s?la\s?Entidad\s?Federativa:)/is,
+};
+
+function onPDFSelected(input) {
+  pdfFiles = Array.from(input.files);
+  const el = document.getElementById('pdf-file-name');
+  el.textContent = `${pdfFiles.length} archivo(s) seleccionado(s)`;
+  el.classList.remove('empty');
+  document.getElementById('pdf-go-btn').disabled = pdfFiles.length === 0;
+  clearLog('pdf-console');
+  logLine('pdf-console', `✓ ${pdfFiles.length} PDF(s) listos.`, 'ok');
+}
+
+async function processPDFs() {
+  if (!pdfFiles.length) return;
+  const btn = document.getElementById('pdf-go-btn');
+  btn.disabled = true;
+  clearLog('pdf-console');
+  setProgress('pdf', 0);
+
+  if (!window.pdfjsLib) {
+    logLine('pdf-console', '⟳ Cargando pdf.js…');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  const results = [];
+  for (let i = 0; i < pdfFiles.length; i++) {
+    const file = pdfFiles[i];
+    logLine('pdf-console', `\n⟳ Procesando: ${file.name}`);
+    try {
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      let raw = '';
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page    = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        raw += content.items.map(x => x.str).join(' ') + '\n';
+      }
+      const data = { Archivo: file.name };
+      for (const [key, pat] of Object.entries(PATTERNS)) {
+        const m = raw.match(pat);
+        data[key] = m ? cleanText(m[1]) : '';
+      }
+      data['NOMBRE_COMPLETO']    = `${data.nombre} ${data.apellido_p} ${data.apellido_m}`.trim();
+      data['DIRECCION_COMPLETA'] = [
+        data.vialidad_tipo, data.vialidad_nombre,
+        `Ext.${data.num_ext}`,
+        data.num_int ? `Int.${data.num_int}` : '',
+        `Col.${data.colonia}`, data.municipio, `CP.${data.CODIGO_POSTAL}`
+      ].filter(Boolean).join(' ');
+      data['REGIMEN'] = '';
+      data['ACTIVIDADES_ECONOMICAS'] = '';
+      if (data.RFC)             logLine('pdf-console', `  ✓ RFC: ${data.RFC}`, 'ok');
+      if (data.CURP)            logLine('pdf-console', `  ✓ CURP: ${data.CURP}`, 'ok');
+      if (data.NOMBRE_COMPLETO) logLine('pdf-console', `  ✓ Nombre: ${data.NOMBRE_COMPLETO}`, 'ok');
+      results.push(data);
+    } catch (e) {
+      logLine('pdf-console', `  ✗ Error: ${e.message}`, 'err');
+    }
+    setProgress('pdf', Math.round(((i + 1) / pdfFiles.length) * 100));
+  }
+
+  if (results.length) {
+    const cols = ['Archivo','RFC','CURP','idCIF','DIRECCION_COMPLETA',
+                  'CODIGO_POSTAL','NOMBRE_COMPLETO','REGIMEN','ACTIVIDADES_ECONOMICAS'];
+    const ws = XLSX.utils.json_to_sheet(results.map(r => {
+      const row = {}; cols.forEach(c => { row[c] = r[c] || ''; }); return row;
+    }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
+    const blob = new Blob(
+      [XLSX.write(wb, { bookType:'xlsx', type:'array' })],
+      { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
+    );
+    downloadBlob(blob, 'Reporte_Constancias_SAT.xlsx');
+    logLine('pdf-console', `\n✅ Exportado: ${results.length} registro(s).`, 'ok');
+    toast(`✅ Reporte generado con ${results.length} registro(s)`, 'success');
+  } else {
+    logLine('pdf-console', '\n⚠ No se extrajo información válida.', 'err');
+    toast('Sin resultados válidos', 'error');
+  }
+  btn.disabled = false;
+  setProgress('pdf', null);
+}
+
+/* ── MÓDULO 2: GENERADOR DE CONTRATOS — BUG FIX ────────────
+ *
+ * PROBLEMA RAÍZ:
+ * Word fragmenta las etiquetas {{campo}} en múltiples nodos
+ * <w:r><w:t> cuando el usuario escribe, autocorrige o cambia
+ * el formato. Un reemplazo directo sobre el XML crudo nunca
+ * encuentra "{{nombre}}" porque en el XML puede estar partido:
+ *
+ *   <w:r><w:t>{{</w:t></w:r>
+ *   <w:r><w:t>nombre</w:t></w:r>
+ *   <w:r><w:t>}}</w:t></w:r>
+ *
+ * SOLUCIÓN:
+ * Para cada <w:p> (párrafo):
+ *   1. Concatenamos el texto de TODOS sus <w:t> → texto plano.
+ *   2. Aplicamos los reemplazos sobre ese texto plano.
+ *   3. Si cambió, ponemos el resultado en el PRIMER <w:t> y
+ *      vaciamos todos los demás (preservamos el formato del run).
+ * Esto funciona sin importar cómo Word haya fragmentado la etiqueta.
+ * Es exactamente lo que hace python-docx internamente.
+─────────────────────────────────────────────────────────── */
+
+let templateFile = null;
+let excelFile    = null;
+
+function onTemplateSelected(input) {
+  templateFile = input.files[0];
+  const el = document.getElementById('template-name');
+  el.textContent = templateFile?.name || 'Sin plantilla';
+  el.classList.toggle('empty', !templateFile);
+  checkWordReady();
+}
+
+function onExcelSelected(input) {
+  excelFile = input.files[0];
+  const el = document.getElementById('excel-name');
+  el.textContent = excelFile?.name || 'Sin datos';
+  el.classList.toggle('empty', !excelFile);
+  checkWordReady();
+}
+
+function checkWordReady() {
+  document.getElementById('word-go-btn').disabled = !(templateFile && excelFile);
+}
+
+/**
+ * Reconstruye el texto de un párrafo <w:p>, aplica reemplazos
+ * y consolida el resultado en el primer <w:t>, vaciando los demás.
+ *
+ * @param {string} paraXml - XML del párrafo completo
+ * @param {Object} dict    - { "{{tag}}": "valor" }
+ * @returns {string}       - XML del párrafo corregido
+ */
+function replaceParagraph(paraXml, dict) {
+  // Extraemos TODOS los nodos <w:t> del párrafo con sus posiciones
+  const wtRegex = /(<w:t(?:\s[^>]*)?>)([\s\S]*?)(<\/w:t>)/g;
+  const nodes = [];
+  let m;
+  while ((m = wtRegex.exec(paraXml)) !== null) {
+    nodes.push({ open: m[1], text: m[2], close: m[3], index: m.index, full: m[0] });
+  }
+  if (nodes.length === 0) return paraXml; // Sin texto: no tocamos
+
+  // Texto plano = concatenación de todos los <w:t>
+  const fullText = nodes.map(n => n.text).join('');
+
+  // Aplicamos TODOS los reemplazos sobre el texto plano reconstruido
+  let replaced = fullText;
+  for (const [tag, value] of Object.entries(dict)) {
+    const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    replaced = replaced.replace(new RegExp(escaped, 'g'), value);
+  }
+
+  if (replaced === fullText) return paraXml; // Sin cambios: devolvemos intacto
+
+  // Reconstruimos el XML del párrafo de atrás hacia adelante
+  // para no desplazar los índices de los nodos previos
+  let result = paraXml;
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const node    = nodes[i];
+    const newText = (i === 0) ? replaced : ''; // Primer nodo: texto completo; resto: vacíos
+
+    // Añadimos xml:space="preserve" al primer nodo para conservar espacios
+    let newOpen = node.open;
+    if (i === 0 && !newOpen.includes('xml:space')) {
+      newOpen = newOpen.replace('<w:t', '<w:t xml:space="preserve"');
+    }
+
+    const newNode = `${newOpen}${newText}${node.close}`;
+    result = result.slice(0, node.index) + newNode + result.slice(node.index + node.full.length);
+  }
+  return result;
+}
+
+/**
+ * Aplica replaceParagraph() a cada <w:p> del XML del documento.
+ */
+function replaceAllParagraphs(xmlContent, dict) {
+  return xmlContent.replace(/<w:p[ >][\s\S]*?<\/w:p>/g, para => replaceParagraph(para, dict));
+}
+
+/**
+ * Convierte un valor del Excel a string legible.
+ *
+ * Con { raw: false } SheetJS ya convierte fechas a strings como "1/15/2026",
+ * pero el formato puede variar. Esta función estandariza fechas al formato
+ * DD/MM/YYYY que se usa en México, y limpia valores vacíos o 'nan'.
+ *
+ * @param {any} val - Valor crudo de una celda del Excel
+ * @returns {string}
+ */
+function formatExcelValue(val) {
+  if (val === null || val === undefined) return '';
+
+  // Si SheetJS ya entregó un objeto Date real (cuando cellDates:true y raw:true)
+  if (val instanceof Date && !isNaN(val)) {
+    const d = String(val.getDate()).padStart(2, '0');
+    const m = String(val.getMonth() + 1).padStart(2, '0'); // getMonth() es 0-based
+    const y = val.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+
+  const str = String(val).replace(/^nan$/i, '').trim();
+
+  // Con raw:false SheetJS devuelve fechas como "M/D/YYYY" (formato de Excel en inglés).
+  // Las detectamos y convertimos a DD/MM/YYYY.
+  // Patrón: 1 o 2 dígitos / 1 o 2 dígitos / 4 dígitos (ej. "1/15/2026" o "12/5/2025")
+  const excelDatePattern = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+  const match = str.match(excelDatePattern);
+  if (match) {
+    const [, month, day, year] = match; // SheetJS devuelve mes primero (MM/DD/YYYY de EE.UU.)
+    return `${day.padStart(2,'0')}/${month.padStart(2,'0')}/${year}`;
+  }
+
+  return str;
+}
+
+async function generateContracts() {
+  if (!templateFile || !excelFile) return;
+  const btn = document.getElementById('word-go-btn');
+  btn.disabled = true;
+  clearLog('word-console');
+  setProgress('word', 0);
+
+  try {
+    // Leer Excel (equivale a pd.read_excel con fillna('') en Python)
+    const excelBuf = await excelFile.arrayBuffer();
+    // cellDates:true  → SheetJS convierte números de fecha (ej. 46143) a objetos Date reales
+    // dateNF          → formato de salida para fechas (DD/MM/YYYY)
+    const wb       = XLSX.read(excelBuf, { type:'array', cellDates: true });
+    const ws       = wb.Sheets[wb.SheetNames[0]];
+    const rows     = XLSX.utils.sheet_to_json(ws, { defval:'', raw: false });
+
+    logLine('word-console', `✓ Excel: ${rows.length} fila(s).`, 'ok');
+    if (rows.length) logLine('word-console', `✓ Columnas: ${Object.keys(rows[0]).join(', ')}`);
+    logLine('word-console', `✓ Plantilla: ${templateFile.name}\n`, 'ok');
+
+    // Cargamos JSZip para abrir el .docx (que internamente es un ZIP)
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+
+    const templateBuf = await templateFile.arrayBuffer();
+    let successCount  = 0;
+
+    // ZIP contenedor: todos los contratos van aquí dentro.
+    // El navegador solo permite UNA descarga automática por acción del usuario,
+    // así que empaquetamos todos los .docx en un solo .zip y lo descargamos al final.
+    const outputZip = new JSZip();
+
+    for (let i = 0; i < rows.length; i++) {
+      const fila = rows[i];
+
+      // Diccionario de reemplazos: { "{{Columna}}": "valor limpio" }
+      const dict = {};
+      for (const [col, val] of Object.entries(fila)) {
+        // formatExcelValue convierte fechas al formato DD/MM/YYYY
+        // y limpia cualquier valor 'nan' que venga de celdas vacías
+        dict[`{{${col}}}`] = formatExcelValue(val);
+      }
+
+      try {
+        // Abrimos una copia fresca del template por cada fila
+        const zip = await JSZip.loadAsync(templateBuf);
+
+        // Procesamos el documento principal
+        let xmlContent = await zip.file('word/document.xml').async('string');
+        xmlContent = replaceAllParagraphs(xmlContent, dict);
+        zip.file('word/document.xml', xmlContent);
+
+        // También procesamos encabezados y pies de página si existen
+        for (const xf of ['word/header1.xml','word/footer1.xml',
+                           'word/header2.xml','word/footer2.xml']) {
+          if (zip.file(xf)) {
+            let xfc = await zip.file(xf).async('string');
+            zip.file(xf, replaceAllParagraphs(xfc, dict));
+          }
+        }
+
+        // Generamos el .docx como ArrayBuffer y lo añadimos al ZIP contenedor
+        const docxBytes = await zip.generateAsync({ type:'arraybuffer',
+          mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        });
+
+        // Nombre del archivo
+        const codigo   = String(fila['Codigo Contpaq'] || '').replace(/[\/*?:"<>|]/g, '');
+        const nombre   = String(fila['NOMBRE DEL INQUILINO'] || fila['rfc'] || `Doc_${i+1}`).replace(/[\/*?:"<>|]/g, '');
+        const filename = `2026_CONTRATO_${codigo}_${nombre}.docx`;
+
+        // Añadimos el .docx al ZIP contenedor (no descarga individual)
+        outputZip.file(filename, docxBytes);
+        logLine('word-console', `  ✓ ${filename}`, 'ok');
+        successCount++;
+
+      } catch (e) {
+        logLine('word-console', `  ✗ Fila ${i+1}: ${e.message}`, 'err');
+      }
+
+      setProgress('word', Math.round(((i + 1) / rows.length) * 100));
+    }
+
+    // Descargamos UN SOLO .zip con todos los contratos adentro
+    if (successCount > 0) {
+      logLine('word-console', `\n⟳ Empaquetando ${successCount} contrato(s) en ZIP…`);
+      const zipBlob = await outputZip.generateAsync({ type:'blob', compression:'DEFLATE' });
+      const zipName = `Contratos_${new Date().toISOString().slice(0,10)}.zip`;
+      downloadBlob(zipBlob, zipName);
+      logLine('word-console', `✅ Descargado: ${zipName}`, 'ok');
+    }
+
+    logLine('word-console', `\n✅ ${successCount}/${rows.length} contratos generados.`, 'ok');
+    toast(`✅ ${successCount} contrato(s) en un solo ZIP`, 'success');
+
+  } catch (e) {
+    logLine('word-console', `\n✗ Error: ${e.message}`, 'err');
+    toast('Error: ' + e.message, 'error');
+  }
+
+  btn.disabled = false;
+  setProgress('word', null);
+}
+
+/* ── MÓDULO 3: WORD → PDF ───────────────────────────────── */
+
+let convertFiles = [];
+
+function onConvertSelected(input) {
+  convertFiles = Array.from(input.files);
+  const el = document.getElementById('convert-file-name');
+  el.textContent = `${convertFiles.length} archivo(s) seleccionado(s)`;
+  el.classList.remove('empty');
+  document.getElementById('convert-go-btn').disabled = convertFiles.length === 0;
+  clearLog('convert-console');
+  logLine('convert-console', `✓ ${convertFiles.length} archivo(s) listos.`, 'ok');
+}
+
+async function convertToPDF() {
+  if (!convertFiles.length) return;
+  const btn = document.getElementById('convert-go-btn');
+  btn.disabled = true;
+  clearLog('convert-console');
+  setProgress('convert', 0);
+
+  const libs = [
+    'https://cdn.jsdelivr.net/npm/docx-preview@0.1.22/dist/docx-preview.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  ];
+  for (const src of libs) {
+    logLine('convert-console', `⟳ Cargando ${src.split('/').pop()}…`);
+    await loadScript(src);
+  }
+
+  let container = document.getElementById('_docx_render');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = '_docx_render';
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;';
+    document.body.appendChild(container);
+  }
+
+  for (let i = 0; i < convertFiles.length; i++) {
+    const file = convertFiles[i];
+    logLine('convert-console', `\n⟳ Convirtiendo: ${file.name}`);
+    try {
+      const buf = await file.arrayBuffer();
+      container.innerHTML = '';
+      await docx.renderAsync(buf, container, null, {
+        className:'docx-render', inWrapper:true,
+        ignoreWidth:false, ignoreHeight:false,
+        ignoreFonts:false, breakPages:true, useBase64URL:true,
+      });
+      const canvas = await html2canvas(container, {
+        scale:2, useCORS:true, allowTaint:true, backgroundColor:'#ffffff',
+      });
+      const { jsPDF } = window.jspdf;
+      const pdf     = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pw      = pdf.internal.pageSize.getWidth();
+      const ph      = (canvas.height * pw) / canvas.width;
+      pdf.addImage(imgData, 'JPEG', 0, 0, pw, ph);
+      downloadBlob(pdf.output('blob'), file.name.replace(/\.docx$/i, '.pdf'));
+      logLine('convert-console', `  ✓ ${file.name.replace(/\.docx$/i, '.pdf')}`, 'ok');
+    } catch (e) {
+      logLine('convert-console', `  ✗ Error: ${e.message}`, 'err');
+    }
+    setProgress('convert', Math.round(((i + 1) / convertFiles.length) * 100));
+  }
+
+  logLine('convert-console', '\n✅ Conversión completada.', 'ok');
+  toast('✅ Conversión a PDF completada', 'success');
+  btn.disabled = false;
+  setProgress('convert', null);
+}
+</script>
+</body>
+</html>
