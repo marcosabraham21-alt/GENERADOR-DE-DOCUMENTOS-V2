@@ -229,8 +229,8 @@ footer {
 
 <header>
   <h1>Sistema <span>Integral</span> de Documentos</h1>
-  <p>Extracción SAT · Contratos automáticos · Conversión PDF</p>
-  <div class="version-pill">v 2.1 — bug fix contratos ✓</div>
+  <p>Modulo 1 PDF a EXCEL · Generador de Contratos y Papeletas · Conversión PDF</p>
+  <div class="version-pill">v 2.1 — ✓</div>
 </header>
 
 <main>
@@ -244,21 +244,21 @@ footer {
   <div id="menu-grid">
     <div class="menu-card c1" onclick="showModule('pdf')">
       <div class="icon">📄</div>
-      <h2>PDF → Excel (SAT)</h2>
+      <h2>PDF → Excel </h2>
       <p>Extrae RFC, CURP, nombre y dirección de Constancias Fiscales y exporta un reporte .xlsx.</p>
-      <div class="cta">Abrir módulo →</div>
+      <div class="cta">ABRIR MODULO →</div>
     </div>
     <div class="menu-card c2" onclick="showModule('word')">
       <div class="icon">📝</div>
-      <h2>Generador de Contratos</h2>
-      <p>Carga tu plantilla .docx con etiquetas <code>{{campo}}</code> y un Excel de datos. Un contrato por fila.</p>
-      <div class="cta">Abrir módulo →</div>
+      <h2>Generador </h2>
+      <p>Carga tu plantilla .docx con etiquetas <code>{{campo}}</code> y un Excel de datos.</p>
+      <div class="cta">ABRIR MODULO →</div>
     </div>
     <div class="menu-card c3" onclick="showModule('convert')">
       <div class="icon">🔄</div>
       <h2>Word → PDF</h2>
-      <p>Convierte archivos .docx a PDF directamente en el navegador, sin instalar nada extra.</p>
-      <div class="cta">Abrir módulo →</div>
+      <p>Convierte archivos .docx a PDF directamente en el navegador.</p>
+      <div class="cta">ABRIR MODULO →</div>
     </div>
   </div>
 </div>
@@ -285,11 +285,19 @@ footer {
   </div>
   <div class="card">
     <div class="card-label"><span class="step-num">2</span> Generar reporte Excel</div>
-    <button class="btn btn-primary" id="pdf-go-btn" disabled onclick="processPDFs()">⚡ Generar reporte .xlsx</button>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
+      <button class="btn btn-primary" id="pdf-go-btn" disabled onclick="processPDFs()">⚡ Generar reporte .xlsx</button>
+      <button class="btn btn-outline" id="pdf-diag-btn" disabled onclick="diagPDFs()" title="Ver texto crudo extraído del PDF">🔍 Ver texto extraído</button>
+    </div>
     <div class="prog-wrap" id="pdf-pw">
       <div class="prog-label"><span id="pdf-pt">Procesando…</span><span id="pdf-pp">0%</span></div>
       <progress id="pdf-progress" max="100" value="0"></progress>
     </div>
+  </div>
+  <div class="card" id="pdf-raw-card" style="display:none;">
+    <div class="card-label">🔍 Texto crudo extraído (diagnóstico)</div>
+    <div class="console" id="pdf-raw-console" style="height:260px;color:#f9c97c;"></div>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:.5rem;">Copia este texto y compártelo para ajustar los patrones de extracción.</p>
   </div>
   <div class="card">
     <div class="card-label">📋 Log de proceso</div>
@@ -304,13 +312,10 @@ footer {
     <div class="module-icon">📝</div>
     <div><div class="module-title">Generador de Contratos</div></div>
   </div>
-  <div class="module-subtitle">Combina una plantilla Word con tus datos de Excel para generar contratos automáticamente.</div>
+  <div class="module-subtitle">Combina una plantilla Word con tus datos de Excel para generar contratos y papeletas automáticamente.</div>
   <div class="info-box">
     <strong>Formato de etiquetas:</strong> Escribe <code>{{NombreColumna}}</code> en tu .docx donde quieras
     insertar un dato. El nombre debe coincidir exactamente con el encabezado del Excel.<br><br>
-    <strong>✅ Bug corregido:</strong> Word fragmenta las etiquetas entre múltiples nodos XML internos.
-    Esta versión reconstruye el texto de cada párrafo antes de reemplazar, garantizando que
-    <code>{{campo}}</code> siempre se sustituya correctamente.
   </div>
   <div class="card">
     <div class="card-label"><span class="step-num">1</span> Plantilla Word (.docx)</div>
@@ -350,10 +355,6 @@ footer {
     <div><div class="module-title">Word a PDF</div></div>
   </div>
   <div class="module-subtitle">Convierte archivos .docx a PDF directamente en el navegador.</div>
-  <div class="info-box">
-    <strong>Nota:</strong> Usa <code>docx-preview</code> + <code>html2canvas</code> + <code>jsPDF</code>,
-    equivalente a <code>docx2pdf</code> de la app de escritorio.
-  </div>
   <div class="card">
     <div class="card-label"><span class="step-num">1</span> Seleccionar archivo(s) Word</div>
     <div class="file-picker">
@@ -380,7 +381,7 @@ footer {
 
 <div id="toast"></div>
 
-<footer>Sistema Integral de Documentos · v2.1 · Todo corre en tu navegador, sin servidores.</footer>
+<footer>Sistema Integral de Documentos · v2.1 · </footer>
 
 <script>
 'use strict';
@@ -447,20 +448,63 @@ function showModule(name) {
 
 let pdfFiles = [];
 
+// ══════════════════════════════════════════════════════════════════════════════
+// PATRONES REGEX — calibrados con texto REAL extraído por pdf.js
+//
+// Estructura observada en el diagnóstico:
+//   Cada label y valor están en la MISMA coordenada Y, en items separados:
+//   [y:477] "RFC:"  [y:477] " "  [y:477] "RTL140730QG5"
+//   [y:291] "Código Postal:"  [y:291] "66220"  [y:291] "Tipo de Vialidad:" ...
+//
+// Después de reconstruir por líneas geométricas, cada línea queda así:
+//   "RFC:  RTL140730QG5"
+//   "Código Postal: 66220  Tipo de Vialidad:  CALZADA (CALZ.)"
+//   "Nombre de Vialidad:  CALZADA DEL VALLE  Número Exterior:  400"
+//   "Número Interior: 315  Nombre de la Colonia:  DEL VALLE"
+//   "1  Servicios de administración de negocios  50  15/07/2021"
+//   "Régimen General de Ley Personas Morales  30/07/2014"
+// ══════════════════════════════════════════════════════════════════════════════
 const PATTERNS = {
-  RFC:             /RFC:\s*([A-ZÑ&]{3,4}\d{6}[A-Z\d]{3})/i,
-  CURP:            /CURP:\s*([A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z\d]\d)/i,
-  idCIF:           /idCIF:\s*(\d{11})/i,
-  nombre:          /Nombre\s*\(s\):\s*(.+?)(?=Primer\s?Apellido:)/is,
-  apellido_p:      /Primer\s?Apellido:\s*(.+?)(?=Segundo\s?Apellido:)/is,
-  apellido_m:      /Segundo\s?Apellido:\s*(.+?)(?=Fecha\s?inicio|Nombre\s?Comercial:)/is,
-  CODIGO_POSTAL:   /Código\s?Postal:\s*(\d{5})/i,
-  vialidad_tipo:   /Tipo\s?de\s?Vialidad:\s*(.+?)(?=Nombre\s?de\s?Vialidad:)/is,
-  vialidad_nombre: /Nombre\s?de\s?Vialidad:\s*(.+?)(?=Número\s?Exterior:)/is,
-  num_ext:         /Número\s?Exterior:\s*(.+?)(?=Número\s?Interior:|Nombre\s?de\s?la\s?Colonia:)/is,
-  num_int:         /Número\s?Interior:\s*(.+?)(?=Nombre\s?de\s?la\s?Colonia:)/is,
-  colonia:         /Nombre\s?de\s?la\s?Colonia:\s*(.+?)(?=Nombre\s?de\s?la\s?Localidad:)/is,
-  municipio:       /Nombre\s?del\s?Municipio.*?:\s*(.+?)(?=Nombre\s?de\s?la\s?Entidad\s?Federativa:)/is,
+
+  // RFC — label y valor en la misma línea: "RFC:  RTL140730QG5"
+  RFC: /\bRFC\s*:\s*([A-ZÑ&]{3,4}\d{6}[A-Z\d]{3})\b/,
+
+  // CURP — solo personas físicas: "CURP:  XXXX000000HXXXXX00"
+  CURP: /\bCURP\s*:\s*([A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z\d]\d)\b/,
+
+  // idCIF — en la cédula lateral: "idCIF: 14100829707"
+  idCIF: /idCIF\s*:\s*(\d{11})/i,
+
+  // ── Persona FÍSICA ────────────────────────────────────────────────────────
+  // Línea: "Nombre(s):  JUAN  Primer Apellido:  GARCIA"  (misma Y)
+  // Capturamos hasta el siguiente label conocido en la misma línea
+  nombre:     /Nombre\s*\(s\)\s*:\s*(.*?)(?=\s*Primer\s*Apellido\s*:)/is,
+  apellido_p: /Primer\s*Apellido\s*:\s*(.*?)(?=\s*Segundo\s*Apellido\s*:)/is,
+  apellido_m: /Segundo\s*Apellido\s*:\s*(.*?)(?=\s*(?:Fecha\s*inicio|Nombre\s*Comercial)\s*:)/is,
+
+  // ── Persona MORAL ─────────────────────────────────────────────────────────
+  // Línea: "Denominación/Razón Social:  RENTA TU LOCAL"
+  razon_social: /Denominaci[oó]n\s*[/\/]?\s*Raz[oó]n\s*Social\s*:\s*(.*?)(?=\s*R[eé]gimen\s*Capital\s*:|[\n\r])/is,
+
+  // ── DIRECCIÓN ─────────────────────────────────────────────────────────────
+  // Línea: "Código Postal: 66220  Tipo de Vialidad:  CALZADA (CALZ.)"
+  // CP está pegado sin espacio: "Código Postal:66220" o con espacio
+  CODIGO_POSTAL: /C[oó]digo\s*Postal\s*:?\s*(\d{5})/i,
+
+  // Tipo de Vialidad: en la misma línea que CP, hasta fin de línea
+  vialidad_tipo: /Tipo\s*de\s*Vialidad\s*:\s*(.*?)(?=\s*[\n\r]|$)/im,
+
+  // Línea: "Nombre de Vialidad:  CALZADA DEL VALLE  Número Exterior:  400"
+  vialidad_nombre: /Nombre\s*de\s*Vialidad\s*:\s*(.*?)(?=\s*N[uú]mero\s*Exterior\s*:)/is,
+  num_ext:         /N[uú]mero\s*Exterior\s*:\s*(.*?)(?=\s*[\n\r]|$)/im,
+
+  // Línea: "Número Interior: 315  Nombre de la Colonia:  DEL VALLE"
+  num_int: /N[uú]mero\s*Interior\s*:?\s*(.*?)(?=\s*Nombre\s*de\s*la\s*Colonia\s*:)/is,
+  colonia: /Nombre\s*de\s*la\s*Colonia\s*:\s*(.*?)(?=\s*[\n\r]|$)/im,
+
+  // Municipio — items fragmentados en múltiples [y:230]: "Nombre del Municipio o Demarcación Territorial: SAN PEDRO"
+  // seguido de [y:221]: "GARZA GARCIA" — los unimos con la reconstrucción geométrica
+  municipio: /Nombre\s*del\s*Municipio(?:\s*o\s*Demarcaci[oó]n\s*Territorial)?\s*:\s*([\s\S]*?)(?=\s*Nombre\s*de\s*la\s*Entidad\s*Federativa\s*:)/is,
 };
 
 function onPDFSelected(input) {
@@ -469,8 +513,43 @@ function onPDFSelected(input) {
   el.textContent = `${pdfFiles.length} archivo(s) seleccionado(s)`;
   el.classList.remove('empty');
   document.getElementById('pdf-go-btn').disabled = pdfFiles.length === 0;
+  document.getElementById('pdf-diag-btn').disabled = pdfFiles.length === 0;
   clearLog('pdf-console');
   logLine('pdf-console', `✓ ${pdfFiles.length} PDF(s) listos.`, 'ok');
+}
+
+// Extrae y muestra el texto crudo del primer PDF para diagnóstico.
+// Útil para verificar qué texto está viendo el motor de regex.
+async function diagPDFs() {
+  if (!pdfFiles.length) return;
+  const rawCard = document.getElementById('pdf-raw-card');
+  const rawConsole = document.getElementById('pdf-raw-console');
+  rawCard.style.display = 'block';
+  rawConsole.textContent = '⟳ Extrayendo texto...';
+
+  if (!window.pdfjsLib) {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  // Solo procesamos el primer PDF para diagnóstico
+  const file = pdfFiles[0];
+  const buf  = await file.arrayBuffer();
+  const pdf  = await pdfjsLib.getDocument({ data: buf }).promise;
+  let raw = '';
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page    = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    raw += `--- PÁGINA ${p} ---\n`;
+    // Mostramos cada item en su propia línea con su posición Y para entender el orden
+    content.items.forEach(item => {
+      raw += `[y:${Math.round(item.transform[5])}] ${item.str}\n`;
+    });
+  }
+  rawConsole.textContent = `Archivo: ${file.name}\nPáginas: ${pdf.numPages}\n\n${raw}`;
+  rawConsole.scrollTop = 0;
+  toast('🔍 Texto extraído visible abajo', 'info');
 }
 
 async function processPDFs() {
@@ -488,48 +567,162 @@ async function processPDFs() {
   }
 
   const results = [];
+
   for (let i = 0; i < pdfFiles.length; i++) {
     const file = pdfFiles[i];
     logLine('pdf-console', `\n⟳ Procesando: ${file.name}`);
+
     try {
       const buf = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-      let raw = '';
+
+      // ── Reconstrucción geométrica del texto ──────────────────────────────
+      // El diagnóstico muestra que pdf.js entrega cada token en su propia
+      // coordenada [y:NNN]. Agrupamos por Y (±2px tolerancia) y ordenamos
+      // por X dentro de cada línea → texto legible fiel al PDF.
+      let allItems = [];
       for (let p = 1; p <= pdf.numPages; p++) {
         const page    = await pdf.getPage(p);
-        const content = await page.getTextContent();
-        raw += content.items.map(x => x.str).join(' ') + '\n';
+        const tc      = await page.getTextContent();
+        tc.items.forEach(item => {
+          // Incluimos también items de solo espacios si tienen posición relevante
+          allItems.push({
+            str:  item.str,
+            x:    item.transform[4],
+            y:    item.transform[5],
+            page: p,
+          });
+        });
       }
+
+      // Tolerancia: items con Y que difieran ≤2px van a la misma línea
+      const YTOL = 2;
+      const lineMap = new Map();
+      allItems.forEach(item => {
+        // Buscamos si ya existe un grupo Y cercano
+        let foundKey = null;
+        for (const key of lineMap.keys()) {
+          const [kp, ky] = key.split('_').map(Number);
+          if (kp === item.page && Math.abs(ky - item.y) <= YTOL) {
+            foundKey = key; break;
+          }
+        }
+        const key = foundKey || `${item.page}_${item.y}`;
+        if (!lineMap.has(key)) lineMap.set(key, []);
+        lineMap.get(key).push(item);
+      });
+
+      // Ordenamos: página asc, Y desc (en PDF Y=0 es abajo, Y alto = arriba)
+      const sortedLines = [...lineMap.entries()].sort((a, b) => {
+        const [pa, ya] = a[0].split('_').map(Number);
+        const [pb, yb] = b[0].split('_').map(Number);
+        return pa !== pb ? pa - pb : yb - ya;
+      });
+
+      // Cada línea: items ordenados izq→der por X, unidos con espacio
+      const raw = sortedLines
+        .map(([, items]) =>
+          items.sort((a, b) => a.x - b.x)
+               .map(i => i.str)
+               .join('')       // sin espacio extra: el SAT ya incluye espacios en str
+               .replace(/\s+/g, ' ')
+               .trim()
+        )
+        .filter(line => line.length > 0)
+        .join('\n');
+
+      // ── Aplicamos patrones regex ──────────────────────────────────────────
       const data = { Archivo: file.name };
       for (const [key, pat] of Object.entries(PATTERNS)) {
         const m = raw.match(pat);
         data[key] = m ? cleanText(m[1]) : '';
       }
-      data['NOMBRE_COMPLETO']    = `${data.nombre} ${data.apellido_p} ${data.apellido_m}`.trim();
+
+      // ── NOMBRE_COMPLETO: persona física vs moral ──────────────────────────
+      // Persona física: nombre + apellido_p + apellido_m
+      // Persona moral:  razon_social (Denominación/Razón Social)
+      if (data.nombre || data.apellido_p) {
+        data['NOMBRE_COMPLETO'] = `${data.nombre} ${data.apellido_p} ${data.apellido_m}`.trim();
+      } else if (data.razon_social) {
+        data['NOMBRE_COMPLETO'] = data.razon_social;
+      } else {
+        data['NOMBRE_COMPLETO'] = '';
+      }
+
+      // ── DIRECCIÓN COMPLETA ────────────────────────────────────────────────
       data['DIRECCION_COMPLETA'] = [
-        data.vialidad_tipo, data.vialidad_nombre,
-        `Ext.${data.num_ext}`,
-        data.num_int ? `Int.${data.num_int}` : '',
-        `Col.${data.colonia}`, data.municipio, `CP.${data.CODIGO_POSTAL}`
-      ].filter(Boolean).join(' ');
-      data['REGIMEN'] = '';
-      data['ACTIVIDADES_ECONOMICAS'] = '';
-      if (data.RFC)             logLine('pdf-console', `  ✓ RFC: ${data.RFC}`, 'ok');
-      if (data.CURP)            logLine('pdf-console', `  ✓ CURP: ${data.CURP}`, 'ok');
-      if (data.NOMBRE_COMPLETO) logLine('pdf-console', `  ✓ Nombre: ${data.NOMBRE_COMPLETO}`, 'ok');
+        data.vialidad_tipo,
+        data.vialidad_nombre,
+        data.num_ext  ? `Ext. ${data.num_ext}`  : '',
+        data.num_int  ? `Int. ${data.num_int}`  : '',
+        data.colonia  ? `Col. ${data.colonia}`  : '',
+        data.municipio,
+        data.CODIGO_POSTAL ? `CP ${data.CODIGO_POSTAL}` : '',
+      ].filter(Boolean).join(', ');
+
+      // ── REGIMEN ───────────────────────────────────────────────────────────
+      // El diagnóstico muestra la línea exacta:
+      //   "Régimen General de Ley Personas Morales  30/07/2014"
+      // Buscamos líneas que empiecen con "Régimen" (no el encabezado de tabla)
+      // y quitamos la fecha al final.
+      const regLines = raw.split('\n').filter(line =>
+        /^R[eé]gimen\s+(?!Capital|Fecha|Inicio|Fin)/i.test(line.trim())
+      );
+      data['REGIMEN'] = [...new Set(
+        regLines.map(l =>
+          cleanText(l.trim()
+            .replace(/\s+\d{2}\/\d{2}\/\d{4}(\s+\d{2}\/\d{2}\/\d{4})?.*$/, '') // quita fechas
+          )
+        ).filter(r => r.length > 5)
+      )].join(' | ');
+
+      // ── ACTIVIDADES ECONÓMICAS ────────────────────────────────────────────
+      // El diagnóstico muestra cada actividad en su propia línea:
+      //   "1  Servicios de administración de negocios  50  15/07/2021"
+      //   "2  Servicios de consultoría en computación  25  15/07/2021"
+      // Patrón: línea que empieza con 1-2 dígitos seguido de texto descriptivo
+      const actLines = raw.split('\n').filter(line =>
+        /^\d{1,2}\s{1,4}[A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ\s]{5,}/.test(line.trim())
+      );
+      data['ACTIVIDADES_ECONOMICAS'] = [...new Set(
+        actLines.map(l => {
+          return cleanText(
+            l.trim()
+             .replace(/^\d{1,2}\s+/, '')              // quita número de orden
+             .replace(/\s+\d{1,3}\s+\d{2}\/\d{2}\/\d{4}.*$/, '') // quita porcentaje y fechas
+          );
+        }).filter(a => a.length > 5)
+      )].join(' | ');
+
+      // ── Log de resultados ─────────────────────────────────────────────────
+      logLine('pdf-console', `  ✓ RFC: ${data.RFC || '(no encontrado)'}`,          data.RFC    ? 'ok' : 'err');
+      logLine('pdf-console', `  ✓ idCIF: ${data.idCIF || '(no encontrado)'}`,      data.idCIF  ? 'ok' : 'err');
+      logLine('pdf-console', `  ✓ Nombre: ${data.NOMBRE_COMPLETO || '(no encontrado)'}`, data.NOMBRE_COMPLETO ? 'ok' : 'err');
+      logLine('pdf-console', `  ✓ CP: ${data.CODIGO_POSTAL || '(no encontrado)'}`, data.CODIGO_POSTAL ? 'ok' : 'err');
+      if (data.REGIMEN)               logLine('pdf-console', `  ✓ Régimen: ${data.REGIMEN.slice(0,60)}…`, 'ok');
+      if (data.ACTIVIDADES_ECONOMICAS) logLine('pdf-console', `  ✓ Actividades: ${data.ACTIVIDADES_ECONOMICAS.slice(0,60)}…`, 'ok');
+
       results.push(data);
+
     } catch (e) {
       logLine('pdf-console', `  ✗ Error: ${e.message}`, 'err');
     }
+
     setProgress('pdf', Math.round(((i + 1) / pdfFiles.length) * 100));
   }
 
   if (results.length) {
-    const cols = ['Archivo','RFC','CURP','idCIF','DIRECCION_COMPLETA',
-                  'CODIGO_POSTAL','NOMBRE_COMPLETO','REGIMEN','ACTIVIDADES_ECONOMICAS'];
+    // Columnas del Excel — añadimos RAZON_SOCIAL para personas morales
+    const cols = [
+      'Archivo', 'RFC', 'CURP', 'idCIF',
+      'NOMBRE_COMPLETO', 'DIRECCION_COMPLETA', 'CODIGO_POSTAL',
+      'REGIMEN', 'ACTIVIDADES_ECONOMICAS'
+    ];
     const ws = XLSX.utils.json_to_sheet(results.map(r => {
       const row = {}; cols.forEach(c => { row[c] = r[c] || ''; }); return row;
     }));
+    // Ancho automático de columnas para mejor legibilidad
+    ws['!cols'] = cols.map(c => ({ wch: Math.max(c.length, 18) }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
     const blob = new Blob(
@@ -808,54 +1001,141 @@ async function convertToPDF() {
   clearLog('convert-console');
   setProgress('convert', 0);
 
-  const libs = [
-    'https://cdn.jsdelivr.net/npm/docx-preview@0.1.22/dist/docx-preview.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-  ];
-  for (const src of libs) {
-    logLine('convert-console', `⟳ Cargando ${src.split('/').pop()}…`);
-    await loadScript(src);
+  // Estrategia: docx-preview renderiza el .docx pixel-perfect en un iframe
+  // con los estilos, fuentes y márgenes originales del documento Word.
+  // Luego html2canvas captura ese iframe y jsPDF genera el PDF por páginas.
+  // docx-preview es la única librería JS que respeta fielmente el formato Word.
+  logLine('convert-console', '⟳ Cargando librerías…');
+  await loadScript('https://cdn.jsdelivr.net/npm/docx-preview@0.3.3/dist/docx-preview.min.js');
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+  logLine('convert-console', '✓ Librerías listas.', 'ok');
+
+  // Creamos un iframe oculto donde docx-preview renderizará el documento.
+  // Usamos un iframe en vez de un div para que docx-preview tenga su propio
+  // contexto de estilos, evitando que los CSS de nuestra app interfieran.
+  let iframe = document.getElementById('_docx_iframe');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = '_docx_iframe';
+    // Posicionamos fuera de la pantalla pero con dimensiones reales A4
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:816px;height:1056px;border:none;background:#fff;';
+    document.body.appendChild(iframe);
   }
 
-  let container = document.getElementById('_docx_render');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = '_docx_render';
-    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;';
-    document.body.appendChild(container);
-  }
+  const outputZip  = new JSZip();
+  let successCount = 0;
 
   for (let i = 0; i < convertFiles.length; i++) {
     const file = convertFiles[i];
     logLine('convert-console', `\n⟳ Convirtiendo: ${file.name}`);
+
     try {
-      const buf = await file.arrayBuffer();
-      container.innerHTML = '';
+      const buf       = await file.arrayBuffer();
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+
+      // Preparamos el documento del iframe con un div contenedor
+      iframeDoc.open();
+      iframeDoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"/><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}</style></head><body><div id="docx-container" style="width:816px;background:#fff;"></div></body></html>');
+      iframeDoc.close();
+
+      // docx-preview renderiza el .docx en el div con fidelidad al formato original:
+      // fuentes, tamaños, colores, tablas, imágenes, márgenes, etc.
+      const container = iframeDoc.getElementById('docx-container');
       await docx.renderAsync(buf, container, null, {
-        className:'docx-render', inWrapper:true,
-        ignoreWidth:false, ignoreHeight:false,
-        ignoreFonts:false, breakPages:true, useBase64URL:true,
+        className: 'docx',          // Prefijo de clases CSS generadas
+        inWrapper: true,            // Envuelve en div con márgenes de página
+        ignoreWidth: false,         // Respeta ancho original del documento
+        ignoreHeight: false,        // Respeta alto original
+        ignoreFonts: false,         // Usa las fuentes embebidas en el .docx
+        breakPages: true,           // Renderiza saltos de página
+        useBase64URL: true,         // Imágenes como base64 (no URLs externas)
+        renderHeaders: true,        // Renderiza encabezados
+        renderFooters: true,        // Renderiza pies de página
+        renderFootnotes: true,      // Renderiza notas al pie
       });
+
+      // Esperamos 3 frames para que los estilos y fuentes terminen de aplicarse
+      await new Promise(r => setTimeout(r, 300));
+
+      // Calculamos el alto real del documento renderizado
+      const docHeight = container.scrollHeight;
+      iframe.style.height = docHeight + 'px';
+
+      // Capturamos el iframe como canvas de alta resolución
       const canvas = await html2canvas(container, {
-        scale:2, useCORS:true, allowTaint:true, backgroundColor:'#ffffff',
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: 816,
+        height: docHeight,
+        windowWidth: 816,
+        scrollX: 0,
+        scrollY: 0,
+        logging: false,
       });
+
+      // Generamos el PDF dividiendo el canvas en páginas A4
       const { jsPDF } = window.jspdf;
-      const pdf     = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const pw      = pdf.internal.pageSize.getWidth();
-      const ph      = (canvas.height * pw) / canvas.width;
-      pdf.addImage(imgData, 'JPEG', 0, 0, pw, ph);
-      downloadBlob(pdf.output('blob'), file.name.replace(/\.docx$/i, '.pdf'));
-      logLine('convert-console', `  ✓ ${file.name.replace(/\.docx$/i, '.pdf')}`, 'ok');
+      const pdf       = new jsPDF({ orientation:'portrait', unit:'pt', format:'letter' });
+      const pageW     = pdf.internal.pageSize.getWidth();  // 612pt
+      const pageH     = pdf.internal.pageSize.getHeight(); // 792pt
+
+      // Escala: ancho del canvas (px) → ancho de página (pt)
+      const scale        = pageW / canvas.width;
+      // Alto de una página en píxeles del canvas
+      const pageHeightPx = pageH / scale;
+
+      let yOffset = 0;
+      while (yOffset < canvas.height) {
+        const slicePx = Math.min(pageHeightPx, canvas.height - yOffset);
+
+        // Canvas temporal con solo el segmento de esta página
+        const slice   = document.createElement('canvas');
+        slice.width   = canvas.width;
+        slice.height  = slicePx;
+        const ctx     = slice.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, slice.width, slice.height);
+        ctx.drawImage(canvas, 0, yOffset, canvas.width, slicePx, 0, 0, canvas.width, slicePx);
+
+        const imgData  = slice.toDataURL('image/png');           // PNG para máxima fidelidad
+        const sliceHpt = slicePx * scale;                        // alto en puntos
+
+        if (yOffset > 0) pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, 0, pageW, sliceHpt);
+
+        yOffset += pageHeightPx;
+      }
+
+      const pdfName = file.name.replace(/\.docx$/i, '.pdf');
+      if (convertFiles.length === 1) {
+        downloadBlob(pdf.output('blob'), pdfName);
+      } else {
+        outputZip.file(pdfName, pdf.output('arraybuffer'));
+      }
+
+      logLine('convert-console', `  ✓ ${pdfName}`, 'ok');
+      successCount++;
+
     } catch (e) {
-      logLine('convert-console', `  ✗ Error: ${e.message}`, 'err');
+      logLine('convert-console', `  ✗ Error en ${file.name}: ${e.message}`, 'err');
+      console.error(e);
     }
+
     setProgress('convert', Math.round(((i + 1) / convertFiles.length) * 100));
   }
 
-  logLine('convert-console', '\n✅ Conversión completada.', 'ok');
-  toast('✅ Conversión a PDF completada', 'success');
+  if (convertFiles.length > 1 && successCount > 0) {
+    logLine('convert-console', `\n⟳ Empaquetando ${successCount} PDF(s) en ZIP…`);
+    const zipBlob = await outputZip.generateAsync({ type:'blob', compression:'DEFLATE' });
+    downloadBlob(zipBlob, `PDFs_${new Date().toISOString().slice(0,10)}.zip`);
+  }
+
+  logLine('convert-console', `\n✅ ${successCount}/${convertFiles.length} archivo(s) convertido(s).`, 'ok');
+  toast(`✅ ${successCount} PDF(s) generado(s)`, 'success');
   btn.disabled = false;
   setProgress('convert', null);
 }
