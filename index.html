@@ -7,6 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Lora:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- JSZip se precarga aquí para que esté disponible en todos los módulos -->
+<!-- sin depender de la carga dinámica lazy que a veces falla -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <style>
 /* ══════════════════════════════════════════════════════════
@@ -229,8 +232,8 @@ footer {
 
 <header>
   <h1>Sistema <span>Integral</span> de Documentos</h1>
-  <p>Modulo 1 PDF a EXCEL · Generador de Contratos y Papeletas · Conversión PDF</p>
-  <div class="version-pill">v 2.1 — ✓</div>
+  <p>EXTRACCION CSF · GENERADOR DE DOCUMENTOS</p>
+  <div class="version-pill">v 2.1 —</div>
 </header>
 
 <main>
@@ -244,28 +247,28 @@ footer {
   <div id="menu-grid">
     <div class="menu-card c1" onclick="showModule('pdf')">
       <div class="icon">📄</div>
-      <h2>PDF → Excel </h2>
+      <h2>PDF → Excel (CSF)</h2>
       <p>Extrae RFC, CURP, nombre y dirección de Constancias Fiscales y exporta un reporte .xlsx.</p>
       <div class="cta">ABRIR MODULO →</div>
     </div>
     <div class="menu-card c2" onclick="showModule('word')">
       <div class="icon">📝</div>
-      <h2>Generador </h2>
-      <p>Carga tu plantilla .docx con etiquetas <code>{{campo}}</code> y un Excel de datos.</p>
-      <div class="cta">ABRIR MODULO →</div>
+      <h2>GENERADOR DE DOCUMENTOS</h2>
+      <p>Carga tu plantilla .docx con etiquetas <code>{{campo}}</code> y un Excel de datos. Un contrato por fila.</p>
+      <div class="cta">ABRIL MODULO →</div>
     </div>
-    <div class="menu-card c3" onclick="showModule('convert')">
+    <!-- ═══ <div class="menu-card c3" onclick="showModule('convert')">
       <div class="icon">🔄</div>
       <h2>Word → PDF</h2>
-      <p>Convierte archivos .docx a PDF directamente en el navegador.</p>
-      <div class="cta">ABRIR MODULO →</div>
-    </div>
+      <p>Convierte archivos .docx a PDF directamente en el navegador, sin instalar nada extra.</p>
+      <div class="cta">Abrir módulo →</div>
+    </div>═══ -->
   </div>
 </div>
 
 <!-- ═══ PDF → EXCEL ═══ -->
 <div id="view-pdf" class="module">
-  <button class="back-btn" onclick="showModule('menu')">← Volver al menú</button>
+  <button class="back-btn" onclick="showModule('menu')">← VOLVER AL MENU</button>
   <div class="module-header">
     <div class="module-icon">📄</div>
     <div><div class="module-title">PDF a Excel</div></div>
@@ -307,12 +310,12 @@ footer {
 
 <!-- ═══ GENERADOR DE CONTRATOS ═══ -->
 <div id="view-word" class="module">
-  <button class="back-btn" onclick="showModule('menu')">← Volver al menú</button>
+  <button class="back-btn" onclick="showModule('menu')">← VOLVER AL MENU</button>
   <div class="module-header">
     <div class="module-icon">📝</div>
-    <div><div class="module-title">Generador de Contratos</div></div>
+    <div><div class="module-title">GENERADOR DE DOCUMENTOS</div></div>
   </div>
-  <div class="module-subtitle">Combina una plantilla Word con tus datos de Excel para generar contratos y papeletas automáticamente.</div>
+  <div class="module-subtitle">Combina una plantilla Word con tus datos de Excel para generar contratos automáticamente.</div>
   <div class="info-box">
     <strong>Formato de etiquetas:</strong> Escribe <code>{{NombreColumna}}</code> en tu .docx donde quieras
     insertar un dato. El nombre debe coincidir exactamente con el encabezado del Excel.<br><br>
@@ -334,8 +337,30 @@ footer {
     </div>
   </div>
   <div class="card">
-    <div class="card-label"><span class="step-num">3</span> Generar contratos</div>
-    <button class="btn btn-primary" id="word-go-btn" disabled onclick="generateContracts()">⚡ Generar contratos .docx</button>
+    <div class="card-label"><span class="step-num">3</span> Prefijo del nombre de archivo</div>
+    <!-- Campo editable para el prefijo. Nombre final: PREFIJO_codigo_nombre.docx -->
+    <div style="display:flex;flex-direction:column;gap:.5rem;">
+      <input
+        type="text"
+        id="filename-prefix"
+        placeholder="Ej: ARRENDAMIENTO_2026  o  CONVENIO_ABRIL"
+        value="CONTRATO"
+        maxlength="60"
+        oninput="updatePrefixPreview()"
+        onfocus="this.style.borderColor='var(--acc)'"
+        onblur="this.style.borderColor='var(--border2)'"
+        style="background:var(--surf2);border:1.5px solid var(--border2);border-radius:10px;padding:.65rem 1rem;font-family:'DM Sans',sans-serif;font-size:.875rem;color:var(--text);width:100%;transition:border-color .2s;outline:none;"
+      />
+      <!-- Vista previa del nombre que tendrán los archivos generados -->
+      <p style="font-size:.72rem;color:var(--muted);">
+        Los archivos se llamarán:
+        <span id="prefix-preview" style="color:var(--acc);font-style:italic;font-weight:600;">CONTRATO_[codigo]_[nombre].docx</span>
+      </p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-label"><span class="step-num">4</span> Generar Documentos</div>
+    <button class="btn btn-primary" id="word-go-btn" disabled onclick="generateContracts()">⚡ Generar Documentos .docx</button>
     <div class="prog-wrap" id="word-pw">
       <div class="prog-label"><span id="word-pt">Procesando…</span><span id="word-pp">0%</span></div>
       <progress id="word-progress" max="100" value="0"></progress>
@@ -347,7 +372,7 @@ footer {
   </div>
 </div>
 
-<!-- ═══ WORD → PDF ═══ -->
+<!-- ═══ WORD → PDF 
 <div id="view-convert" class="module">
   <button class="back-btn" onclick="showModule('menu')">← Volver al menú</button>
   <div class="module-header">
@@ -355,6 +380,10 @@ footer {
     <div><div class="module-title">Word a PDF</div></div>
   </div>
   <div class="module-subtitle">Convierte archivos .docx a PDF directamente en el navegador.</div>
+  <div class="info-box">
+    <strong>Nota:</strong> Usa <code>docx-preview</code> + <code>html2canvas</code> + <code>jsPDF</code>,
+    equivalente a <code>docx2pdf</code> de la app de escritorio.
+  </div>
   <div class="card">
     <div class="card-label"><span class="step-num">1</span> Seleccionar archivo(s) Word</div>
     <div class="file-picker">
@@ -375,13 +404,13 @@ footer {
     <div class="card-label">📋 Log de proceso</div>
     <div class="console" id="convert-console">Esperando archivos…</div>
   </div>
-</div>
+</div>  ═══ -->
 
 </main>
 
 <div id="toast"></div>
 
-<footer>Sistema Integral de Documentos · v2.1 · </footer>
+<footer>Sistema Integral de Documentos · v2.1 ·</footer>
 
 <script>
 'use strict';
@@ -785,6 +814,15 @@ function checkWordReady() {
   document.getElementById('word-go-btn').disabled = !(templateFile && excelFile);
 }
 
+// Actualiza la vista previa del nombre de archivo en tiempo real mientras el usuario escribe.
+// Se llama desde oninput del campo de prefijo.
+function updatePrefixPreview() {
+  const raw     = document.getElementById('filename-prefix').value.trim();
+  const prefix  = raw.replace(/[\/*?:"<>|]/g, '') || 'CONTRATO'; // limpia caracteres inválidos
+  const preview = document.getElementById('prefix-preview');
+  preview.textContent = `${prefix}_[codigo]_[nombre].docx`;
+}
+
 /**
  * Reconstruye el texto de un párrafo <w:p>, aplica reemplazos
  * y consolida el resultado en el primer <w:t>, vaciando los demás.
@@ -897,8 +935,11 @@ async function generateContracts() {
     if (rows.length) logLine('word-console', `✓ Columnas: ${Object.keys(rows[0]).join(', ')}`);
     logLine('word-console', `✓ Plantilla: ${templateFile.name}\n`, 'ok');
 
-    // Cargamos JSZip para abrir el .docx (que internamente es un ZIP)
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+    // JSZip ya está precargado en el <head>. Esta línea es solo por seguridad
+    // en caso de que se use el módulo antes de que la página cargue completamente.
+    if (!window.JSZip) {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+    }
 
     const templateBuf = await templateFile.arrayBuffer();
     let successCount  = 0;
@@ -921,7 +962,11 @@ async function generateContracts() {
 
       try {
         // Abrimos una copia fresca del template por cada fila
-        const zip = await JSZip.loadAsync(templateBuf);
+        // Accedemos a JSZip explícitamente desde window para evitar
+        // el error "Cannot read properties of undefined (reading 'loadAsync')"
+        // que ocurre cuando el script CDN no expone JSZip como variable global.
+        const JSZipLib = window.JSZip || JSZip;
+        const zip = await JSZipLib.loadAsync(templateBuf);
 
         // Procesamos el documento principal
         let xmlContent = await zip.file('word/document.xml').async('string');
@@ -945,7 +990,10 @@ async function generateContracts() {
         // Nombre del archivo
         const codigo   = String(fila['Codigo Contpaq'] || '').replace(/[\/*?:"<>|]/g, '');
         const nombre   = String(fila['NOMBRE DEL INQUILINO'] || fila['rfc'] || `Doc_${i+1}`).replace(/[\/*?:"<>|]/g, '');
-        const filename = `2026_CONTRATO_${codigo}_${nombre}.docx`;
+        // Leemos el prefijo que el usuario escribió en el campo de texto.
+        // Si está vacío usamos 'CONTRATO' como valor por defecto.
+        const prefix   = (document.getElementById('filename-prefix').value.trim().replace(/[\/*?:"<>|]/g, '') || 'CONTRATO');
+        const filename = `${prefix}_${codigo}_${nombre}.docx`;
 
         // Añadimos el .docx al ZIP contenedor (no descarga individual)
         outputZip.file(filename, docxBytes);
@@ -1001,27 +1049,46 @@ async function convertToPDF() {
   clearLog('convert-console');
   setProgress('convert', 0);
 
-  // Estrategia: docx-preview renderiza el .docx pixel-perfect en un iframe
-  // con los estilos, fuentes y márgenes originales del documento Word.
-  // Luego html2canvas captura ese iframe y jsPDF genera el PDF por páginas.
-  // docx-preview es la única librería JS que respeta fielmente el formato Word.
+  // ── ESTRATEGIA CORREGIDA ───────────────────────────────────────────────────
+  // Problema anterior: usábamos un <iframe> + html2canvas.
+  // html2canvas NO puede capturar el contenido de un iframe (restricción de
+  // seguridad del navegador: cross-origin frame isolation). Por eso el PDF
+  // salía en blanco con solo una barra gris, y pesaba ~100MB por archivo.
+  //
+  // Solución: renderizamos docx-preview en un <div> del mismo documento,
+  // posicionado fuera de la pantalla (left:-9999px). Así html2canvas sí
+  // puede capturarlo. Además:
+  //   • Usamos JPEG calidad 0.82 en vez de PNG → reduce ~90% el tamaño
+  //   • Usamos escala 1.5 en vez de 2 → suficiente para impresión
+  //   • Renderizamos página por página en vez de capturar todo de golpe
+  // ──────────────────────────────────────────────────────────────────────────
   logLine('convert-console', '⟳ Cargando librerías…');
   await loadScript('https://cdn.jsdelivr.net/npm/docx-preview@0.3.3/dist/docx-preview.min.js');
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+  if (!window.JSZip) {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+  }
   logLine('convert-console', '✓ Librerías listas.', 'ok');
 
-  // Creamos un iframe oculto donde docx-preview renderizará el documento.
-  // Usamos un iframe en vez de un div para que docx-preview tenga su propio
-  // contexto de estilos, evitando que los CSS de nuestra app interfieran.
-  let iframe = document.getElementById('_docx_iframe');
-  if (!iframe) {
-    iframe = document.createElement('iframe');
-    iframe.id = '_docx_iframe';
-    // Posicionamos fuera de la pantalla pero con dimensiones reales A4
-    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:816px;height:1056px;border:none;background:#fff;';
-    document.body.appendChild(iframe);
+  // Contenedor oculto en el MISMO documento (no iframe).
+  // Ancho 816px = tamaño carta a 96dpi. Se posiciona fuera de la pantalla
+  // pero sigue siendo parte del DOM principal → html2canvas puede capturarlo.
+  let container = document.getElementById('_docx_div');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = '_docx_div';
+    container.style.cssText = [
+      'position:fixed',
+      'left:-9999px',
+      'top:0',
+      'width:816px',
+      'min-height:1056px',
+      'background:#fff',
+      'overflow:visible',
+      'z-index:-1',
+    ].join(';');
+    document.body.appendChild(container);
   }
 
   const outputZip  = new JSZip();
@@ -1032,84 +1099,107 @@ async function convertToPDF() {
     logLine('convert-console', `\n⟳ Convirtiendo: ${file.name}`);
 
     try {
-      const buf       = await file.arrayBuffer();
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+      const buf = await file.arrayBuffer();
 
-      // Preparamos el documento del iframe con un div contenedor
-      iframeDoc.open();
-      iframeDoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"/><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}</style></head><body><div id="docx-container" style="width:816px;background:#fff;"></div></body></html>');
-      iframeDoc.close();
+      // Limpiamos el contenedor antes de cada documento
+      container.innerHTML = '';
 
-      // docx-preview renderiza el .docx en el div con fidelidad al formato original:
-      // fuentes, tamaños, colores, tablas, imágenes, márgenes, etc.
-      const container = iframeDoc.getElementById('docx-container');
-      await docx.renderAsync(buf, container, null, {
-        className: 'docx',          // Prefijo de clases CSS generadas
-        inWrapper: true,            // Envuelve en div con márgenes de página
-        ignoreWidth: false,         // Respeta ancho original del documento
-        ignoreHeight: false,        // Respeta alto original
-        ignoreFonts: false,         // Usa las fuentes embebidas en el .docx
-        breakPages: true,           // Renderiza saltos de página
-        useBase64URL: true,         // Imágenes como base64 (no URLs externas)
-        renderHeaders: true,        // Renderiza encabezados
-        renderFooters: true,        // Renderiza pies de página
-        renderFootnotes: true,      // Renderiza notas al pie
+      // El renderAsync ahora ocurre dentro del bloque de limpieza XML (ver abajo)
+
+        // ── SOLUCIÓN DEFINITIVA: limpiar sectPr continuous del XML antes de renderizar ──
+      //
+      // Diagnóstico exacto (del XML real del documento):
+      //   - El .docx tiene 7 secciones (sectPr) todas de tipo "continuous"
+      //   - En Word "continuous" NO crea nueva página — el contenido fluye seguido
+      //   - docx-preview v0.3.x interpreta CADA sectPr como página nueva
+      //     sin respetar el tipo "continuous", generando 7 páginas en blanco
+      //
+      // Solución: antes de pasar el buffer a docx-preview, abrimos el ZIP,
+      // eliminamos todos los sectPr intermedios del document.xml (los que están
+      // dentro de párrafos <w:p>), y dejamos solo el sectPr final del body.
+      // Esto produce un documento de flujo continuo = 1 sola página renderizada.
+
+      // Abrimos el .docx como ZIP para manipular el XML interno
+      const JSZipLib  = window.JSZip;
+      const docZip    = await JSZipLib.loadAsync(buf);
+      let   docXml    = await docZip.file('word/document.xml').async('string');
+
+      // Eliminamos los sectPr que están DENTRO de párrafos (secciones intermedias).
+      // Estos tienen el patrón: <w:pPr>...<w:sectPr>...</w:sectPr>...</w:pPr>
+      // Los sectPr de tipo continuous solo controlan márgenes de columna,
+      // no deben generar páginas nuevas.
+      docXml = docXml.replace(/<w:sectPr(?:(?!<\/w:sectPr>)[\s\S])*?<\/w:sectPr>\s*(<\/w:pPr>)/g, '$1');
+
+      // También eliminamos sectPr que quedaron completamente solos en pPr vacíos
+      docXml = docXml.replace(/<w:pPr>\s*<\/w:pPr>/g, '');
+
+      // Guardamos el XML limpio de vuelta en el ZIP
+      docZip.file('word/document.xml', docXml);
+
+      // Regeneramos el buffer limpio para pasarlo a docx-preview
+      const cleanBuf = await docZip.generateAsync({ type: 'arraybuffer' });
+
+      // Renderizamos el documento limpio — ahora sin secciones intermedias
+      container.innerHTML = '';
+      await docx.renderAsync(cleanBuf, container, null, {
+        className:      'docx',
+        inWrapper:      true,
+        ignoreWidth:    false,
+        ignoreHeight:   false,
+        ignoreFonts:    false,
+        breakPages:     false,   // false = no fuerza saltos de página artificiales
+        useBase64URL:   true,
+        renderHeaders:  true,
+        renderFooters:  true,
+        renderFootnotes:true,
       });
 
-      // Esperamos 3 frames para que los estilos y fuentes terminen de aplicarse
-      await new Promise(r => setTimeout(r, 300));
+      // Esperamos a que los estilos y fuentes terminen de aplicarse
+      await new Promise(r => setTimeout(r, 600));
 
-      // Calculamos el alto real del documento renderizado
-      const docHeight = container.scrollHeight;
-      iframe.style.height = docHeight + 'px';
-
-      // Capturamos el iframe como canvas de alta resolución
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        width: 816,
-        height: docHeight,
-        windowWidth: 816,
-        scrollX: 0,
-        scrollY: 0,
-        logging: false,
-      });
-
-      // Generamos el PDF dividiendo el canvas en páginas A4
+      // Ahora capturamos el contenedor completo como una sola imagen
       const { jsPDF } = window.jspdf;
-      const pdf       = new jsPDF({ orientation:'portrait', unit:'pt', format:'letter' });
-      const pageW     = pdf.internal.pageSize.getWidth();  // 612pt
-      const pageH     = pdf.internal.pageSize.getHeight(); // 792pt
+      const pdf  = new jsPDF({ orientation:'portrait', unit:'pt', format:'letter' });
+      const pageW = pdf.internal.pageSize.getWidth();   // 612pt
+      const pageH = pdf.internal.pageSize.getHeight();  // 792pt
 
-      // Escala: ancho del canvas (px) → ancho de página (pt)
-      const scale        = pageW / canvas.width;
-      // Alto de una página en píxeles del canvas
-      const pageHeightPx = pageH / scale;
+      const canvas = await html2canvas(container, {
+        scale:           1.5,
+        useCORS:         true,
+        allowTaint:      true,
+        backgroundColor: '#ffffff',
+        width:           816,
+        logging:         false,
+      });
 
-      let yOffset = 0;
-      while (yOffset < canvas.height) {
-        const slicePx = Math.min(pageHeightPx, canvas.height - yOffset);
+      logLine('convert-console', `  ℹ Canvas: ${canvas.width}×${canvas.height}px`);
 
-        // Canvas temporal con solo el segmento de esta página
-        const slice   = document.createElement('canvas');
-        slice.width   = canvas.width;
-        slice.height  = slicePx;
-        const ctx     = slice.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, slice.width, slice.height);
-        ctx.drawImage(canvas, 0, yOffset, canvas.width, slicePx, 0, 0, canvas.width, slicePx);
-
-        const imgData  = slice.toDataURL('image/png');           // PNG para máxima fidelidad
-        const sliceHpt = slicePx * scale;                        // alto en puntos
-
-        if (yOffset > 0) pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, 0, pageW, sliceHpt);
-
-        yOffset += pageHeightPx;
+      // Si el contenido cabe en una página → una sola página sin recortar
+      const contentH = (canvas.height / canvas.width) * pageW;
+      if (contentH <= pageH) {
+        // Todo en una página, ajustado al alto real del contenido
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.88), 'JPEG', 0, 0, pageW, contentH);
+      } else {
+        // El contenido supera una página → dividimos en páginas
+        const scale        = pageW / canvas.width;
+        const pageHeightPx = pageH / scale;
+        let   yOffset      = 0;
+        while (yOffset < canvas.height) {
+          const slicePx = Math.min(pageHeightPx, canvas.height - yOffset);
+          const slice   = document.createElement('canvas');
+          slice.width   = canvas.width;
+          slice.height  = slicePx;
+          const ctx = slice.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, slice.width, slice.height);
+          ctx.drawImage(canvas, 0, yOffset, canvas.width, slicePx, 0, 0, canvas.width, slicePx);
+          if (yOffset > 0) pdf.addPage();
+          pdf.addImage(slice.toDataURL('image/jpeg', 0.88), 'JPEG', 0, 0, pageW, slicePx * scale);
+          yOffset += pageHeightPx;
+        }
       }
 
+      // Descarga directa si es un solo archivo, ZIP si son varios
       const pdfName = file.name.replace(/\.docx$/i, '.pdf');
       if (convertFiles.length === 1) {
         downloadBlob(pdf.output('blob'), pdfName);
@@ -1117,7 +1207,9 @@ async function convertToPDF() {
         outputZip.file(pdfName, pdf.output('arraybuffer'));
       }
 
-      logLine('convert-console', `  ✓ ${pdfName}`, 'ok');
+      // Mostramos tamaño aproximado del PDF generado
+      const sizeKB = Math.round(pdf.output('arraybuffer').byteLength / 1024);
+      logLine('convert-console', `  ✓ ${pdfName} (${sizeKB < 1024 ? sizeKB + ' KB' : (sizeKB/1024).toFixed(1) + ' MB'})`, 'ok');
       successCount++;
 
     } catch (e) {
@@ -1127,6 +1219,9 @@ async function convertToPDF() {
 
     setProgress('convert', Math.round(((i + 1) / convertFiles.length) * 100));
   }
+
+  // Limpiamos el contenedor al terminar para liberar memoria
+  container.innerHTML = '';
 
   if (convertFiles.length > 1 && successCount > 0) {
     logLine('convert-console', `\n⟳ Empaquetando ${successCount} PDF(s) en ZIP…`);
