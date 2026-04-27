@@ -233,7 +233,7 @@ footer {
 <header>
   <h1>Sistema <span>Integral</span> de Documentos</h1>
   <p>EXTRACCION CSF · GENERADOR DE DOCUMENTOS</p>
-  <div class="version-pill">v 2.1 —</div>
+ <!-- ═══ <div class="version-pill">v 2.1 —</div> ═══ -->
 </header>
 
 <main>
@@ -1011,7 +1011,7 @@ async function generateContracts() {
     if (successCount > 0) {
       logLine('word-console', `\n⟳ Empaquetando ${successCount} contrato(s) en ZIP…`);
       const zipBlob = await outputZip.generateAsync({ type:'blob', compression:'DEFLATE' });
-      const zipName = `Contratos_${new Date().toISOString().slice(0,10)}.zip`;
+      const zipName = `Docs_Generados_${new Date().toISOString().slice(0,10)}.zip`;
       downloadBlob(zipBlob, zipName);
       logLine('word-console', `✅ Descargado: ${zipName}`, 'ok');
     }
